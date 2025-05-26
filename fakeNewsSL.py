@@ -41,53 +41,175 @@ def get_prediction_and_attention(text):
     return label, confidence, tokens, importances
 
 # --- Interfaz de usuario Streamlit ---
-st.set_page_config(page_title="Detector de Noticias Falsas", layout="centered")
-st.title("📰 Detector de Noticias Falsas (Español)")
-st.markdown("Ingresa el texto de una noticia y analiza si podría ser **falsa o verdadera**.")
+st.set_page_config(page_title="Detector de Noticias Falsas", layout="wide")
 
-text_input = st.text_area("✏️ Escribe o pega aquí tu noticia:", height=200)
+# Crear dos columnas: una para el logo y utilidad (izquierda), otra para el contenido (derecha)
+col1, col2 = st.columns([1, 4])  # Puedes ajustar el tamaño relativo
 
-if st.button("🔍 Analizar"):
-    if not text_input.strip():
-        st.warning("Por favor, ingresa un texto para analizar.")
-    else:
-        with st.spinner("Analizando..."):
-            label, confidence, tokens, importances = get_prediction_and_attention(text_input)
+with col1:
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: center; align-items: center;">
+            <img src="https://i.postimg.cc/kBtt2stc/logo.png" width="120">
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown("### ¿Qué es esta página?")
+    st.markdown(
+        """
+        Esta aplicación utiliza inteligencia artificial para analizar noticias escritas en español y detectar si son **falsas o verdaderas**.
+        Solo tienes que ingresar el texto de la noticia y el modelo te dará un resultado.
+        """
+    )
 
-        # Interpretar confianza como porcentaje de veracidad
-        if label.lower() == "real":
-            veracidad = confidence
-            emoji = "✅"
-            mensaje = "Parece **VERDADERA**"
-        else:
-            veracidad = 1 - confidence
-            emoji = "❌"
-            mensaje = "Parece **FALSA**"
+with col2:
+    # Botones para cambiar de vista
+    st.markdown("""
+        <style>
+        .button-container {
+            margin-bottom: 20px;
+        }
+        .button-container button {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            margin-right: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .button-container button:hover {
+            background-color: #0056b3;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-        porcentaje = int(veracidad * 100)
+    # Usamos st.session_state para controlar la vista activa
+    if "vista" not in st.session_state:
+        st.session_state.vista = "prediccion"
 
-        # Mostrar resultado
-        st.markdown("---")
-        st.markdown(f"### {emoji} Resultado del análisis")
-        st.markdown(f"**{mensaje}** con un {porcentaje}% de confianza")
-        st.progress(veracidad)
+    # Crear botones estilo HTML usando markdown + js
+    btn_prediccion = st.button("🔍 Predicción")
+    btn_pricing = st.button("💰 Pricing")
 
-        # Extraer y mostrar palabras clave
-        top_tokens = [
-            (token.replace("▁", "").replace("##", ""), float(score))
-            for token, score in zip(tokens, importances)
-            if token.isalpha()
-        ]
-        top_tokens.sort(key=lambda x: x[1], reverse=True)
-        keywords = [t for t, _ in top_tokens[:5]]
+    if btn_prediccion:
+        st.session_state.vista = "prediccion"
+    if btn_pricing:
+        st.session_state.vista = "pricing"
 
-        st.markdown("💡 El modelo se fijó especialmente en:")
-        st.markdown(", ".join(f"{kw}" for kw in keywords))
+    # Mostrar la vista según st.session_state.vista
+    if st.session_state.vista == "prediccion":
+        st.title("📰 Detector de Noticias Falsas (Español)")
+        st.markdown("Ingresa el texto de una noticia y analiza si podría ser **falsa o verdadera**.")
+        text_input = st.text_area("✏️ Escribe o pega aquí tu noticia:", height=200)
 
-        # Detalles en expander
-        with st.expander("🔎 Ver importancia de todos los tokens"):
-            df = pd.DataFrame({
-                "Token": [t for t, _ in top_tokens],
-                "Importancia": [s for _, s in top_tokens]
-            })
-            st.bar_chart(df.set_index("Token"))
+        if st.button("Analizar"):
+            if not text_input.strip():
+                st.warning("Por favor, ingresa un texto para analizar.")
+            else:
+                with st.spinner("Analizando..."):
+                    label, confidence, tokens, importances = get_prediction_and_attention(text_input)
+
+                if label.lower() == "real":
+                    veracidad = confidence
+                    emoji = "✅"
+                    mensaje = "Parece VERDADERA"
+                    color = "green"
+                else:
+                    veracidad = 1 - confidence
+                    emoji = "❌"
+                    mensaje = "Parece FALSA"
+                    color = "red"
+
+                porcentaje = int(veracidad * 100)
+
+                st.markdown("---")
+                st.markdown(f"<h3 style='color:{color}'>{emoji} {mensaje}</h3>", unsafe_allow_html=True)
+                st.progress(veracidad)
+                st.info(
+                    "🧠 *Nota:* Este modelo no es perfecto. Úsalo como herramienta de apoyo, no como veredicto final.")
+                
+                # top_tokens = [
+                #     (token.replace("▁", "").replace("##", ""), float(score))
+                #     for token, score in zip(tokens, importances)
+                #     if token.isalpha()
+                # ]
+                # top_tokens.sort(key=lambda x: x[1], reverse=True)
+                # keywords = [t for t, _ in top_tokens[:5]]
+                #
+                # st.markdown("💡 El modelo se fijó especialmente en:")
+                # st.markdown(", ".join(f"{kw}" for kw in keywords))
+                #
+                # with st.expander("🔎 Ver importancia de todos los tokens"):
+                #     df = pd.DataFrame({
+                #         "Token": [t for t, _ in top_tokens],
+                #         "Importancia": [s for _, s in top_tokens]
+                #     })
+                #     st.bar_chart(df.set_index("Token"))
+    else:  # vista pricing
+        st.header("💰 Planes y Precios")
+        st.markdown("Elige el plan que más se adapte a tus necesidades:")
+
+        col_plan1, col_plan2, col_plan3 = st.columns(3)
+
+        with col_plan1:
+            st.markdown(f"""
+                   <div style="
+                       border: 2px solid #007bff;
+                       border-radius: 15px;
+                       padding: 20px;
+                       background-color: #141414;
+                       text-align: center;
+                       box-shadow: 2px 2px 8px rgba(0, 123, 255, 0.3);
+                   ">
+                       <div style="color: #007bff; font-weight: bold; font-size: 24px; margin-bottom: 15px;">Gratis</div>
+                       <ul style="list-style-type:none; padding-left: 0;">
+                           <li>✅ Hasta 5 análisis diarios</li>
+                           <li>✅ Acceso básico al modelo</li>
+                           <li>✅ Soporte comunidad</li>
+                       </ul>
+                       <h3 style="color:#007bff;">$0 / mes</h3>
+                   </div>
+                   """, unsafe_allow_html=True)
+
+        with col_plan2:
+            st.markdown(f"""
+                   <div style="
+                       border: 2px solid #007bff;
+                       border-radius: 15px;
+                       padding: 20px;
+                       background-color: #141414;
+                       text-align: center;
+                       box-shadow: 2px 2px 8px rgba(0, 123, 255, 0.3);
+                   ">
+                       <div style="color: #007bff; font-weight: bold; font-size: 24px; margin-bottom: 15px;">Básico</div>
+                       <ul style="list-style-type:none; padding-left: 0;">
+                           <li>✅ Hasta 50 análisis diarios</li>
+                           <li>✅ Acceso prioritario al modelo</li>
+                           <li>✅ Soporte por correo</li>
+                       </ul>
+                       <h3 style="color:#007bff;">$9.99 / mes</h3>
+                   </div>
+                   """, unsafe_allow_html=True)
+
+        with col_plan3:
+            st.markdown(f"""
+                   <div style="
+                       border: 2px solid #007bff;
+                       border-radius: 15px;
+                       padding: 20px;
+                       background-color: #141414;
+                       text-align: center;
+                       box-shadow: 2px 2px 8px rgba(0, 123, 255, 0.3);
+                   ">
+                       <div style="color: #007bff; font-weight: bold; font-size: 24px; margin-bottom: 15px;">Premium</div>
+                       <ul style="list-style-type:none; padding-left: 0;">
+                           <li>✅ Análisis ilimitados</li>
+                           <li>✅ Acceso a características avanzadas</li>
+                           <li>✅ Soporte prioritario</li>
+                       </ul>
+                       <h3 style="color:#007bff;">$29.99 / mes</h3>
+                   </div>
+                   """, unsafe_allow_html=True)
